@@ -1,11 +1,11 @@
 <template>
     <div class="building__floor">
-        <div class="building__floor-btn"
+        <button class="building__floor-btn"
             @click="callElevator()"
         >
             {{ props.number + 1}}
             <span></span>
-        </div>
+        </button>
     </div>
 </template>
 

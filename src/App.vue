@@ -6,15 +6,16 @@
           v-for="(floor, index) in params.floors"
           :key="index"
           :number="index"
-          @callElevator="(number) => callElevator(number)"
+          @callElevator="(numberFloor) => callElevator(numberFloor)"
         >
         </the-floor>
       </div>
-      <div class="building__elevators-list" :style="{ minHeight: buildHeight + 'px'}">
+      <div class="building__elevators-list" :style="{ minHeight: buildMinHeight + 'px'}">
         <the-elevator
-          v-for="(elevator, index) in params.elevator"
+          v-for="(elevator, index) in elevators"
           :key="index"
           :floorHeightPercent="floorHeightPercent"
+          :elevator="elevator"
         >
         </the-elevator>
       </div>
@@ -23,26 +24,62 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import TheElevator from './components/TheElevator.vue'
 import TheFloor from './components/TheFloor.vue'
 
 const params = {
   floors: 5,
-  elevator: 5
+  elevators: 5
 }
+
+let elevators = ref([])
 
 const floorHeightPercent = computed(() => {
   return 100 / params.floors
 })
 
-const buildHeight = computed(() => {
+const buildMinHeight = computed(() => {
   return params.floors * 90
 })
 
-const callElevator = (number) => {
-  console.log(number)
+const callElevator = (numberFloor) => {
+  const nearestElevator = findNearestElevator(numberFloor)
+  if(nearestElevator) {
+    nearestElevator.state = 'called'
+    nearestElevator.floor_call = numberFloor
+  }
 }
+
+function findNearestElevator(floor) {
+  const availableElevators = elevators.value.filter(elevator => elevator.state === "free");
+
+  if (availableElevators.length === 0) {
+    return null;
+  }
+
+  return availableElevators.reduce((closestElevator, elevator) => {
+    const distance = Math.abs(elevator.current_floor - floor);
+    const closestDistance = Math.abs(closestElevator.current_floor - floor);
+    return distance < closestDistance ? elevator : closestElevator;
+  });
+}
+
+const initBuilding = () => {
+  const elevatorsInfo = localStorage.getItem('elevators')
+  if(!elevatorsInfo) {
+    for (let i = 0; i < params.elevators; i++) {
+      elevators.value.push({id: i, current_floor: 0, state: 'free', floor_call: null})
+      localStorage.setItem('elevators', JSON.stringify(elevators.value))
+    }
+  } else {
+    elevators.value = [...JSON.parse(elevatorsInfo)]
+  }
+}
+
+onMounted(() => {
+  initBuilding()
+})
 
 </script>
 
@@ -78,6 +115,7 @@ const callElevator = (number) => {
       border-left: 2px solid #969696;
       border-right: 2px solid #969696;
       position: relative;
+      pointer-events: all;
     }
     &__elevator-cabin {
       width: 100%;
