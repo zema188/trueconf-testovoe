@@ -16,6 +16,7 @@
           :key="index"
           :floorHeightPercent="floorHeightPercent"
           :elevator="elevator"
+          @elevatorArrived="(id) => elevatorArrived(id)"
         >
         </the-elevator>
       </div>
@@ -24,13 +25,14 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import TheElevator from './components/TheElevator.vue'
 import TheFloor from './components/TheFloor.vue'
 
 const params = {
   floors: 5,
-  elevators: 5
+  elevators: 5,
+  pause: 3000,
 }
 
 let elevators = ref([])
@@ -48,6 +50,17 @@ const callElevator = (numberFloor) => {
   if(nearestElevator) {
     nearestElevator.state = 'called'
     nearestElevator.floor_call = numberFloor
+    if(nearestElevator.floor_call > nearestElevator.current_floor) nearestElevator.direction = 1
+    else nearestElevator.direction = -1
+    const intervalId = setInterval(() => {
+      nearestElevator.current_floor = nearestElevator.current_floor + nearestElevator.direction
+    }, 1000)
+
+    setTimeout(() => {
+      elevatorArrived(nearestElevator.id)
+      clearInterval(intervalId)
+    }, (Math.abs(nearestElevator.floor_call - nearestElevator.current_floor) * 1000))
+
   }
 }
 
@@ -69,13 +82,33 @@ const initBuilding = () => {
   const elevatorsInfo = localStorage.getItem('elevators')
   if(!elevatorsInfo) {
     for (let i = 0; i < params.elevators; i++) {
-      elevators.value.push({id: i, current_floor: 0, state: 'free', floor_call: null})
+      elevators.value.push({id: i, current_floor: 0, state: 'free', floor_call: null, direction: null,})
       localStorage.setItem('elevators', JSON.stringify(elevators.value))
     }
   } else {
     elevators.value = [...JSON.parse(elevatorsInfo)]
   }
 }
+
+const elevatorArrived = (idElevator) => {
+  const calledElevator = elevators.value.find(elevator => elevator.id === idElevator);
+
+  if (calledElevator) {
+    calledElevator.state = 'paused';
+
+    setTimeout(() => {
+      calledElevator.state = 'free';
+    }, params.pause);
+  }
+};
+
+watch(
+    () => elevators,
+    () => {
+      localStorage.setItem('elevators', JSON.stringify(elevators.value))
+    },
+    { deep: true }
+)
 
 onMounted(() => {
   initBuilding()
@@ -116,6 +149,11 @@ onMounted(() => {
       border-right: 2px solid #969696;
       position: relative;
       pointer-events: all;
+      &.paused {
+        & .building__elevator-cabin {
+          animation: changeColor 3s linear infinite;
+        }
+      }
     }
     &__elevator-cabin {
       width: 100%;
@@ -125,6 +163,16 @@ onMounted(() => {
       bottom: 0;
       transition: .2s;
       min-height: 90px;
+      text-align: center;
+      padding-top: 5px;
+      & .icon {
+        width: 20px;
+        height: 20px;
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+      }
     }
     &__floor-btn {
       cursor: pointer;
@@ -154,4 +202,16 @@ onMounted(() => {
       }
     }
   }
+
+  @keyframes changeColor {
+  0% {
+    background-color: red; /* Начальный цвет (красный) */
+  }
+  50% {
+    background-color: green; /* Начальный цвет (красный) */
+  }
+  100% {
+    background-color: red; /* Конечный цвет (зеленый) */
+  }
+}
 </style>
