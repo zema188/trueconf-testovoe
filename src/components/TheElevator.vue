@@ -11,8 +11,7 @@
                     transition: calcTransition + 's' + ' linear'
             }"
         >
-            <span v-show="props.elevator.state === 'called' ">{{ props.elevator.floor_call + 1 }}</span>
-            {{ props.elevator.state }}
+            <span class="building__elevator-current-floor" v-show="props.elevator.state === 'called' "> to {{ props.elevator.floor_call + 1 }}</span>
             {{ props.elevator.current_floor + 1}}
             <img src="@/assets/images/icons/arrow.svg" class="icon"
                 v-show="props.elevator.state === 'called'"

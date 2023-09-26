@@ -6,6 +6,7 @@
           v-for="(floor, index) in params.floors"
           :key="index"
           :number="index"
+          :elevatorsInfo="elevators"
           @callElevator="(numberFloor) => callElevator(numberFloor)"
         >
         </the-floor>
@@ -21,6 +22,9 @@
         >
         </the-elevator>
       </div>
+      <div class="test" style="position: fixed; right: 0; top: 0;">
+        {{ queue }}
+      </div>
     </div>
   </main>
 </template>
@@ -31,13 +35,13 @@ import TheElevator from './components/TheElevator.vue'
 import TheFloor from './components/TheFloor.vue'
 
 const params = {
-  floors: 6,
+  floors: 20,
   elevators: 5,
   pause: 3000,
 }
 
 let elevators = ref([])
-let queue = []
+let queue = ref([])
 const floorHeightPercent = computed(() => {
   return 100 / params.floors
 })
@@ -48,7 +52,7 @@ const buildMinHeight = computed(() => {
 
 const callElevator = (numberFloor) => {
   // пропускаем вызов 
-  if(queue.includes(numberFloor) || cheackElevatorOnFloor(numberFloor) || cheackElevatorToCalled(numberFloor)) {
+  if(queue.value.includes(numberFloor) || cheackElevatorOnFloor(numberFloor) || cheackElevatorToCalled(numberFloor)) {
     return 0
   }
 
@@ -70,7 +74,7 @@ const callElevator = (numberFloor) => {
     }, (Math.abs(nearestElevator.floor_call - nearestElevator.current_floor) * 1000))
   // если нет свободного лифтра
   } else {
-    queue.push(numberFloor)
+    queue.value.push(numberFloor)
   }
 }
 
@@ -143,8 +147,8 @@ const elevatorArrived = (idElevator) => {
 };
 
 const freeElevatorCall = (elevator) => {
-  if(queue.length) {
-    const floorNumber = queue.shift()
+  if(queue.value.length) {
+    const floorNumber = queue.value.shift()
     elevator.state = 'called'
     elevator.floor_call = floorNumber
     if(elevator.floor_call > elevator.current_floor) elevator.direction = 1
@@ -218,7 +222,7 @@ onMounted(() => {
       &.down {
         & .building__elevator-cabin {
           & .icon {
-            transform: rotate(180deg) translate(-50%, -50%);
+              transform: translate(-50%, -50%) rotate(180deg);
           }
         }
       }
@@ -242,6 +246,11 @@ onMounted(() => {
         transform: translate(-50%, -50%);
       }
     }
+    &__elevator-current-floor {
+      position: absolute;
+      right: 0;
+      bottom: 0;
+    }
     &__floor-btn {
       cursor: pointer;
       padding-left: 10px;
@@ -250,6 +259,13 @@ onMounted(() => {
       justify-content: center;
       min-height: 100%;
       width: fit-content;
+      &.called {
+        & span {
+          &::after {
+          background: red;
+          }
+        }
+      }
       & span {
         width: 30px;
         height: 30px;
@@ -273,13 +289,13 @@ onMounted(() => {
 
   @keyframes changeColor {
   0% {
-    background-color: red; /* Начальный цвет (красный) */
+    background-color: rgb(222, 228, 49);
   }
   50% {
-    background-color: green; /* Начальный цвет (красный) */
+    background-color: rgba(176, 181, 31, 0.292);
   }
   100% {
-    background-color: red; /* Конечный цвет (зеленый) */
+    background-color: rgb(222, 228, 49);
   }
 }
 </style>
