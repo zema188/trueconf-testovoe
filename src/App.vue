@@ -17,6 +17,7 @@
           :floorHeightPercent="floorHeightPercent"
           :elevator="elevator"
           @elevatorArrived="(id) => elevatorArrived(id)"
+          @freeElevatorCall="(elevator) => freeElevatorCall(elevator)"
         >
         </the-elevator>
       </div>
@@ -30,13 +31,13 @@ import TheElevator from './components/TheElevator.vue'
 import TheFloor from './components/TheFloor.vue'
 
 const params = {
-  floors: 5,
+  floors: 20,
   elevators: 5,
   pause: 3000,
 }
 
 let elevators = ref([])
-
+let queue = []
 const floorHeightPercent = computed(() => {
   return 100 / params.floors
 })
@@ -46,12 +47,19 @@ const buildMinHeight = computed(() => {
 })
 
 const callElevator = (numberFloor) => {
+  // пропускаем вызов 
+  if(queue.includes(numberFloor) || cheackElevatorOnFloor(numberFloor)) {
+    return 0
+  }
+
   const nearestElevator = findNearestElevator(numberFloor)
+  // если есть свободный лифт
   if(nearestElevator) {
     nearestElevator.state = 'called'
     nearestElevator.floor_call = numberFloor
     if(nearestElevator.floor_call > nearestElevator.current_floor) nearestElevator.direction = 1
-    else nearestElevator.direction = -1
+    if(nearestElevator.floor_call < nearestElevator.current_floor) nearestElevator.direction = -1
+
     const intervalId = setInterval(() => {
       nearestElevator.current_floor = nearestElevator.current_floor + nearestElevator.direction
     }, 1000)
@@ -60,8 +68,19 @@ const callElevator = (numberFloor) => {
       elevatorArrived(nearestElevator.id)
       clearInterval(intervalId)
     }, (Math.abs(nearestElevator.floor_call - nearestElevator.current_floor) * 1000))
-
+  // если нет свободного лифтра
+  } else {
+    queue.push(numberFloor)
   }
+}
+
+function cheackElevatorOnFloor(numberFloor) {
+  for (const elevator of elevators.value) {
+    if (elevator.state === 'free' && elevator.current_floor === numberFloor) {
+      return true
+    }
+  }
+  return false
 }
 
 function findNearestElevator(floor) {
@@ -102,10 +121,34 @@ const elevatorArrived = (idElevator) => {
   }
 };
 
+const freeElevatorCall = (elevator) => {
+  if(queue.length) {
+    const floorNumber = queue.shift()
+    elevator.state = 'called'
+    elevator.floor_call = floorNumber
+    if(elevator.floor_call > elevator.current_floor) elevator.direction = 1
+    if(elevator.floor_call < elevator.current_floor) elevator.direction = -1
+
+    const intervalId = setInterval(() => {
+      elevator.current_floor = elevator.current_floor + elevator.direction
+    }, 1000)
+
+    setTimeout(() => {
+      elevatorArrived(elevator.id)
+      clearInterval(intervalId)
+    }, (Math.abs(elevator.floor_call - elevator.current_floor) * 1000))
+  }
+}
+
+const synchronizationLocalStorage = () => {
+  localStorage.setItem('elevators', JSON.stringify(elevators.value))
+  localStorage.setItem('queue', JSON.stringify(elevators.value))
+}
+
 watch(
     () => elevators,
     () => {
-      localStorage.setItem('elevators', JSON.stringify(elevators.value))
+      synchronizationLocalStorage()
     },
     { deep: true }
 )

@@ -33,11 +33,13 @@ const props = defineProps({
         required: true,
     }
 })
-
+const emit = defineEmits(['freeElevatorCall'])
 watch(
     () => props.elevator,
     () => {
-        
+        if(props.elevator.state === 'free') {
+            emit('freeElevatorCall', props.elevator)
+        }
     },
     { deep: true }
 )
