@@ -2,6 +2,7 @@
     <div class="building__elevator"
         :class="{ called: props.elevator.state === 'called',
                 paused: props.elevator.state === 'paused',
+                down: props.elevator.direction === -1
         }"
     >
         <div class="building__elevator-cabin"

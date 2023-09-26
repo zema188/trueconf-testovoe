@@ -31,7 +31,7 @@ import TheElevator from './components/TheElevator.vue'
 import TheFloor from './components/TheFloor.vue'
 
 const params = {
-  floors: 20,
+  floors: 6,
   elevators: 5,
   pause: 3000,
 }
@@ -48,7 +48,7 @@ const buildMinHeight = computed(() => {
 
 const callElevator = (numberFloor) => {
   // пропускаем вызов 
-  if(queue.includes(numberFloor) || cheackElevatorOnFloor(numberFloor)) {
+  if(queue.includes(numberFloor) || cheackElevatorOnFloor(numberFloor) || cheackElevatorToCalled(numberFloor)) {
     return 0
   }
 
@@ -83,6 +83,15 @@ function cheackElevatorOnFloor(numberFloor) {
   return false
 }
 
+function cheackElevatorToCalled(numberFloor) {
+  for (const elevator of elevators.value) {
+    if (elevator.state === 'called' && elevator.floor_call === numberFloor) {
+      return true
+    }
+  }
+  return false
+}
+
 function findNearestElevator(floor) {
   const availableElevators = elevators.value.filter(elevator => elevator.state === "free");
 
@@ -99,12 +108,22 @@ function findNearestElevator(floor) {
 
 const initBuilding = () => {
   const elevatorsInfo = localStorage.getItem('elevators')
+  // const paramsInfo = localStorage.getItem('params')
+  // если параметры изменились
+  // if(params && params !== paramsInfo) {
+  //   for (let i = 0; i < params.elevators; i++) {
+  //     elevators.value.push({id: i, current_floor: 0, state: 'free', floor_call: null, direction: null,})
+  //     localStorage.setItem('elevators', JSON.stringify(elevators.value))
+  //   }
+  //   return
+  // }
+  //если нет в localstorage состояние лифтов
   if(!elevatorsInfo) {
     for (let i = 0; i < params.elevators; i++) {
       elevators.value.push({id: i, current_floor: 0, state: 'free', floor_call: null, direction: null,})
       localStorage.setItem('elevators', JSON.stringify(elevators.value))
     }
-  } else {
+  } else { //если есть в localstorage состояние лифтов
     elevators.value = [...JSON.parse(elevatorsInfo)]
   }
 }
@@ -117,6 +136,8 @@ const elevatorArrived = (idElevator) => {
 
     setTimeout(() => {
       calledElevator.state = 'free';
+      calledElevator.direction = null;
+
     }, params.pause);
   }
 };
@@ -143,15 +164,12 @@ const freeElevatorCall = (elevator) => {
 const synchronizationLocalStorage = () => {
   localStorage.setItem('elevators', JSON.stringify(elevators.value))
   localStorage.setItem('queue', JSON.stringify(elevators.value))
+  localStorage.setItem('params', JSON.stringify(params.value))
 }
 
-watch(
-    () => elevators,
-    () => {
-      synchronizationLocalStorage()
-    },
-    { deep: true }
-)
+watch([() => params, elevators, queue], () => {
+  synchronizationLocalStorage()
+}, { deep: true });
 
 onMounted(() => {
   initBuilding()
@@ -195,6 +213,13 @@ onMounted(() => {
       &.paused {
         & .building__elevator-cabin {
           animation: changeColor 3s linear infinite;
+        }
+      }
+      &.down {
+        & .building__elevator-cabin {
+          & .icon {
+            transform: rotate(180deg) translate(-50%, -50%);
+          }
         }
       }
     }
