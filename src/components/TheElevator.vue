@@ -6,6 +6,7 @@
         }"
     >
         <div class="building__elevator-cabin"
+            ref="cabin"
             :style="{ height: props.floorHeightPercent + '%',
                     bottom: elevator.floor_call * floorHeightPercent  + '%',
                     transition: calcTransition + 's' + ' linear'
@@ -21,10 +22,14 @@
 </template>
 
 <script setup>
-import { onMounted, watch, computed } from "vue"
+import { onMounted, watch, computed, ref, onUpdated } from "vue"
 
 const props = defineProps({
     floorHeightPercent: {
+        type: Number,
+        required: true,
+    },
+    floorHeight: {
         type: Number,
         required: true,
     },
@@ -44,16 +49,28 @@ watch(
     { deep: true }
 )
 
+const cabin = ref(null)
+
 const calcTransition = computed(() => {
     return Math.abs(props.elevator.floor_call - props.elevator.current_floor)
 })
 
 onMounted(() => {
-    if(props.elevator === 'called') {
-        true
+    // если лифт уже едет
+    if(props.elevator.state === 'called') {
+        cabin.value.style.bottom = `${props.elevator.current_floor * props.floorHeight}px`
+        emit('calledOnMounted', props.elevator)
+        setTimeout(() => {
+            cabin.value.style.bottom = props.elevator.floor_call * props.floorHeightPercent  + '%'
+        },0)
+    }
+    // если лифт на паузу
+    if(props.elevator.state === 'paused') {
+        emit('elevatorArrived', props.elevator.id)
     }
 })
-
+onUpdated(() => {
+})
 </script>
 
 <style lang="scss" scoped>
