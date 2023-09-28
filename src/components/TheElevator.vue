@@ -1,19 +1,18 @@
 <template>
     <div class="building__elevator"
         :class="{ called: props.elevator.state === 'called',
-                paused: props.elevator.state === 'paused',
+                paused: props.elevator.state === 'pause',
                 down: props.elevator.direction === -1
         }"
     >
         <div class="building__elevator-cabin"
             ref="cabin"
             :style="{ height: props.floorHeightPercent + '%',
-                    bottom: elevator.floor_call * floorHeightPercent  + '%',
-                    transition: calcTransition + 's' + ' linear'
+                    bottom: props.elevator.position_y + '%',
             }"
         >
-            <span class="building__elevator-current-floor" v-show="props.elevator.state === 'called' "> to {{ props.elevator.floor_call + 1 }}</span>
-            {{ props.elevator.current_floor + 1}}
+            <span class="building__elevator-current-floor" v-show="props.elevator.state === 'called' "> to {{ props.elevator.floor_called + 1 }}</span>
+            {{ props.elevator.floor_current + 1}}
             <img src="@/assets/images/icons/arrow.svg" class="icon"
                 v-show="props.elevator.state === 'called'"
             >
@@ -22,9 +21,13 @@
 </template>
 
 <script setup>
-import { onMounted, watch, computed, ref, onUpdated } from "vue"
+import { onMounted, watch, ref, onUpdated } from "vue"
 
 const props = defineProps({
+    elevator: {
+        type: Object,
+        required: true,
+    },
     floorHeightPercent: {
         type: Number,
         required: true,
@@ -33,12 +36,12 @@ const props = defineProps({
         type: Number,
         required: true,
     },
-    elevator: {
-        type: Object,
-        required: true,
-    }
 })
+
 const emit = defineEmits(['freeElevatorCall'])
+
+const originalHeight = ref(null)
+
 watch(
     () => props.elevator,
     () => {
@@ -49,26 +52,14 @@ watch(
     { deep: true }
 )
 
+
 const cabin = ref(null)
 
-const calcTransition = computed(() => {
-    return Math.abs(props.elevator.floor_call - props.elevator.current_floor)
-})
 
 onMounted(() => {
-    // если лифт уже едет
-    if(props.elevator.state === 'called') {
-        cabin.value.style.bottom = `${props.elevator.current_floor * props.floorHeight}px`
-        emit('calledOnMounted', props.elevator)
-        setTimeout(() => {
-            cabin.value.style.bottom = props.elevator.floor_call * props.floorHeightPercent  + '%'
-        },0)
-    }
-    // если лифт на паузу
-    if(props.elevator.state === 'paused') {
-        emit('elevatorArrived', props.elevator.id)
-    }
+    originalHeight.value = props.floorHeight
 })
+
 onUpdated(() => {
 })
 </script>

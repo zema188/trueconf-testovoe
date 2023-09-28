@@ -14,14 +14,12 @@
       </div>
       <div class="building__elevators-list" :style="{ minHeight: buildMinHeight + 'px'}">
         <the-elevator
-          v-for="(elevator, index) in elevators"
-          :key="index"
+          v-for="elevator in elevators"
+          :key="elevator.id"
+          :elevator="elevator"
           :floorHeightPercent="floorHeightPercent"
           :floorHeight="floorHeight"
-          :elevator="elevator"
-          @elevatorArrived="(id) => elevatorArrived(id)"
           @freeElevatorCall="(elevator) => freeElevatorCall(elevator)"
-          @calledOnMounted="(elevator) => calledOnMounted(elevator)"
         >
         </the-elevator>
       </div>
@@ -33,43 +31,57 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import TheElevator from './components/TheElevator.vue'
 import TheFloor from './components/TheFloor.vue'
 
+//параметры
 const params = {
-  floors: 55,
-  elevators: 22,
+  floors: 5,
+  elevators: 3,
   pause: 3000,
 }
 
+// массив лифтов
 let elevators = ref([])
+// очередь вызовов
 let queue = ref([])
+
+let buildingList = ref(null)
+let documentHeight = ref(window.innerHeight)
+
+window.addEventListener('resize', function() {
+  documentHeight.value = window.innerHeight
+})
 
 const floorHeightPercent = computed(() => {
   return 100 / params.floors
 })
 
-let buildingList = ref(null)
 const floorHeight = computed(() => {
-  return document.documentElement.clientHeight / params.floors
+  return Math.max(documentHeight.value / params.floors, 90)
 })
-
 
 const buildMinHeight = computed(() => {
   return params.floors * 90
 })
 
+const buildHeight = computed(() => {
+  return params.floors * floorHeight.value
+})
+
 const ElevatorsListWidth = computed(() => {
   
   if (document.documentElement.clientWidth > params.elevators * 96.8 + (params.elevators - 1) * 20 + 50) {
-  return document.documentElement.clientWidth;
+    return document.documentElement.clientWidth;
   } else {
     return params.elevators * 96.8 + (params.elevators - 1) * 20 + 50;
   }
 
 })
 
+
+// функция которую вызывает этаж для вызова лифта
 const callElevator = (numberFloor) => {
   // пропускаем вызов 
   if(queue.value.includes(numberFloor) || cheackElevatorOnFloor(numberFloor) || cheackElevatorToCalled(numberFloor)) {
@@ -77,9 +89,12 @@ const callElevator = (numberFloor) => {
   }
 
   const nearestElevator = findNearestElevator(numberFloor)
+
   // если есть свободный лифт вызываем его
   if(nearestElevator) {
+
     changeStateElevatorToCalled(nearestElevator, numberFloor)
+
   // если нет свободного лифтра, добавляем вызов в очередь
   } else {
     queue.value.push(numberFloor)
@@ -87,43 +102,135 @@ const callElevator = (numberFloor) => {
 }
 
 
-// функция меняет состояние лифта на called
-const changeStateElevatorToCalled = (nearestElevator, numberFloor) => {
-  nearestElevator.state = 'called'
-    nearestElevator.floor_call = numberFloor
-    if(nearestElevator.floor_call > nearestElevator.current_floor) nearestElevator.direction = 1
-    if(nearestElevator.floor_call < nearestElevator.current_floor) nearestElevator.direction = -1
+// Функция вызова лифтра
+const changeStateElevatorToCalled = async (nearestElevator, numberFloor) => {
+  nearestElevator.state = 'called';
+  nearestElevator.floor_called = numberFloor;
 
-    const intervalId = setInterval(() => {
-      nearestElevator.current_floor = nearestElevator.current_floor + nearestElevator.direction
-    }, 1000)
+  // Определяем направление движения
+  if (nearestElevator.floor_called > nearestElevator.floor_current) nearestElevator.direction = 1;
+  if (nearestElevator.floor_called < nearestElevator.floor_current) nearestElevator.direction = -1;
 
-    setTimeout(() => {
-      elevatorArrived(nearestElevator.id)
-      clearInterval(intervalId)
-    }, (Math.abs(nearestElevator.floor_call - nearestElevator.current_floor) * 1000))
+  // Вычисляем дистанцию и время
+  const time = 1000 * Math.abs(nearestElevator.floor_called - nearestElevator.floor_current);
+
+  // делаем анимацию
+  const animationPromise = new Promise((resolve) => {
+    elevatorMove(nearestElevator, time, () => {
+
+      resolve();
+    });
+  });
+
+  await animationPromise;
+  nearestElevator.floor_current = numberFloor
+
+  // отправляем лифт на паузу
+  const pausePromise = new Promise((resolve) => {
+    pauseElevator(nearestElevator, params.pause, () => {
+
+      resolve();
+    });
+  });
+  
+  await pausePromise;
+  nearestElevator.state = 'free';
+};
+
+
+// анимация движения лифтра
+function elevatorMove(elevator, duration, callback) {
+  const distance = Math.abs(elevator.floor_called * floorHeight.value) / buildHeight.value * 100 - elevator.position_y;
+  const startValue = elevator.position_y;
+
+  let startTime;
+  let lastUpdateTime = 0; // Время последнего обновления
+
+  function updateValue(currentTime) {
+    if (!startTime) {
+      startTime = currentTime;
+    }
+
+    const elapsedTime = currentTime - startTime;
+
+    // Обновляем time_to_called_floor на каждом кадре
+    elevator.time_to_called_floor = duration - elapsedTime;
+
+    if (elapsedTime >= duration) {
+      elevator.position_y = startValue + distance;
+      elevator.floor_current = Math.round(elevator.position_y / floorHeight.value);
+      elevator.time_to_called_floor = 0; // Время до вызова этажа равно 0
+      if (callback) {
+        callback();
+      }
+    } else {
+      const progress = elapsedTime / duration;
+      elevator.position_y = startValue + progress * distance;
+
+      if (currentTime - lastUpdateTime >= 1000) {
+        elevator.floor_current += elevator.direction;
+        lastUpdateTime = currentTime;
+      }
+
+      requestAnimationFrame(updateValue);
+    }
+  }
+
+  requestAnimationFrame(updateValue);
+}
+
+
+// пауза лифта
+function pauseElevator(elevator, time_sleep, callback) {
+  elevator.state = 'pause';
+  elevator.floor_called = null;
+  elevator.direction = null;
+  let startTime = null
+
+  function updateValue(currentTime) {
+    if (!startTime) {
+      startTime = currentTime
+    }
+
+    const elapsedTime = currentTime - startTime
+    const remainingTime = Math.max(0, time_sleep - elapsedTime)
+
+    elevator.time_sleep = remainingTime
+
+    if (remainingTime <= 0) {
+      if (callback) {
+        callback()
+      }
+    } else {
+      requestAnimationFrame(updateValue)
+    }
+  }
+
+  requestAnimationFrame(updateValue)
 }
 
 
 // функция проверки есть ли на этаже свободный лифт
 function cheackElevatorOnFloor(numberFloor) {
   for (const elevator of elevators.value) {
-    if (elevator.state === 'free' && elevator.current_floor === numberFloor) {
+    if (elevator.state === 'free' && elevator.floor_current === numberFloor) {
       return true
     }
   }
   return false
 }
 
+
 // функция проверки есть ли сейчас лифт который едет на этаж
 function cheackElevatorToCalled(numberFloor) {
   for (const elevator of elevators.value) {
-    if (elevator.state === 'called' && elevator.floor_call === numberFloor) {
+    if (elevator.state === 'called' && elevator.floor_called === numberFloor) {
       return true
     }
   }
   return false
 }
+
 
 //функция возвращает ближайший свободный лифт к переданному этажу
 function findNearestElevator(floor) {
@@ -134,61 +241,108 @@ function findNearestElevator(floor) {
   }
 
   return availableElevators.reduce((closestElevator, elevator) => {
-    const distance = Math.abs(elevator.current_floor - floor);
-    const closestDistance = Math.abs(closestElevator.current_floor - floor);
+    const distance = Math.abs(elevator.floor_current - floor);
+    const closestDistance = Math.abs(closestElevator.floor_current - floor);
     return distance < closestDistance ? elevator : closestElevator;
   });
 }
 
+
 // инициализируем приложение при запуске
 const initBuilding = () => {
+  // если параметры изменились
   const paramsInfo = JSON.parse(localStorage.getItem('params'))
-  if(paramsInfo.floors !== params.floors || paramsInfo.elevators !== params.elevators) {
-    for (let i = 0; i < params.elevators; i++) {
-      elevators.value.push({id: i, current_floor: 0, state: 'free', floor_call: null, direction: null,})
-      localStorage.setItem('elevators', JSON.stringify(elevators.value))
+  if(paramsInfo) {
+    if(paramsInfo.floors !== params.floors || paramsInfo.elevators !== params.elevators) {
+      initElevators()
+      synchronizationLocalStorage()
+      return
     }
-    return
   }
   const elevatorsInfo = localStorage.getItem('elevators')
   const queueInfo = localStorage.getItem('queue')
+  // если нет сохраненной информации о лифтах
   if(!elevatorsInfo) {
-    for (let i = 0; i < params.elevators; i++) {
-      elevators.value.push({id: i, current_floor: 0, state: 'free', floor_call: null, direction: null,})
-      localStorage.setItem('elevators', JSON.stringify(elevators.value))
-    }
-  } else { //если есть в localstorage состояние лифтов
+    initElevators()
+  } else { //если есть сохраненная информация о лифтах
     elevators.value = [...JSON.parse(elevatorsInfo)]
     queue.value = [...JSON.parse(queueInfo)]
+    // вызываем функцию для проверки состояний лифтов и запуска соответствующих функция
+    resumeWorkElevators()
   }
 }
 
-// функция вызывается когда лифтр приехал на этаж, даем лифтру паузу и он стоит некоторое время заданное в параметрах
-const elevatorArrived = (idElevator) => {
-  const calledElevator = elevators.value.find(elevator => elevator.id === idElevator);
 
-  if (calledElevator) {
-    calledElevator.state = 'paused';
+// функция которую вызывает лифт если при загрузке страницы его state == called
+const resumeWorkElevators = async () => {
+  elevators.value.forEach(async (elevator) => {
 
-    setTimeout(() => {
-      calledElevator.state = 'free';
-      calledElevator.direction = null;
+    // если лифт в движении
+    if (elevator.state === 'called') {
 
-    }, params.pause);
-  }
+      const animationPromise = new Promise((resolve) => {
+
+        elevatorMove(elevator, elevator.time_to_called_floor, () => {
+
+          resolve();
+        });
+      });
+      await animationPromise
+
+      // отправляем лифт на паузу
+      const pausePromise = new Promise((resolve) => {
+        pauseElevator(elevator, params.pause, () => {
+
+          resolve();
+        });
+      });
+      
+      await pausePromise;
+      elevator.state = 'free';
+      return
+    }
+
+    // если лифт на паузу
+    if (elevator.state === 'pause') {
+    // отправляем лифт на паузу
+      const pausePromise = new Promise((resolve) => {
+        pauseElevator(elevator, elevator.time_sleep, () => {
+
+          resolve();
+        });
+      });
+      await pausePromise;
+      elevator.state = 'free';
+      return
+    }
+  });
 };
 
 // лифт который освободился вызывает эту функцию и если в очереди есть вызовы то даем этот вызов освободившемуся лифту
 const freeElevatorCall = (elevator) => {
   if(queue.value.length) {
     const floorNumber = queue.value.shift()
+    if(elevator.floor_current !== floorNumber)
     changeStateElevatorToCalled(elevator, floorNumber)
   }
 }
 
-// лифт который уже едет при mounted 
-const calledOnMounted = (elevator) => {
-  changeStateElevatorToCalled(elevator, elevator.floor_call)
+
+// инициализируем данные лифтов
+const initElevators = () => {
+  for (let i = 0; i < params.elevators; i++) {
+    const elevator = {
+      id: i,
+      floor_current: 0,
+      floor_called: null,
+      direction: null,
+      state: 'free',
+      time_sleep: 0,
+      time_to_called_floor: 0,
+      position_y: 0,
+    }
+    elevators.value.push(elevator)
+  }
 }
 
 
@@ -199,15 +353,13 @@ const synchronizationLocalStorage = () => {
   localStorage.setItem('params', JSON.stringify(params))
 }
 
-
-
-watch([() => params, elevators, queue], () => {
-  synchronizationLocalStorage()
-}, { deep: true });
-
+//при загрузке страницы инициализируем данные
 onMounted(() => {
   initBuilding()
 })
+
+//при перезагрузке или закрытии страницы сохраняем все в localstorage
+window.addEventListener('beforeunload', synchronizationLocalStorage);
 
 </script>
 

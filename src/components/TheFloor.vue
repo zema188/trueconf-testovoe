@@ -31,12 +31,15 @@ const props = defineProps({
     },
 })
 
+// создаем вызов на этаж
 const emit = defineEmits(['callElevator'])
 
+//если на этаж вызван лсифт то кнопка загарается красной
 const cheackForDisabled = computed(() => {
-    return props.elevatorsInfo.filter(elevator => (elevator.state === 'called' && elevator.floor_call === props.number)).length
+    return props.elevatorsInfo.filter(elevator => (elevator.state === 'called' && elevator.floor_called === props.number)).length
 })
 
+//если этаж в очереди 
 const isCalled = computed(() => {
     return props.queue.includes(props.number) && isClicked.value;
 });
