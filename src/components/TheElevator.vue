@@ -11,7 +11,11 @@
                     bottom: props.elevator.position_y + '%',
             }"
         >
-            <span class="building__elevator-current-floor" v-show="props.elevator.state === 'called' "> to {{ props.elevator.floor_called + 1 }}</span>
+            <span class="building__elevator-current-floor"
+                v-show="props.elevator.state === 'called'"
+            >
+                движется на {{ props.elevator.floor_called + 1 }}
+            </span>
             {{ props.elevator.floor_current + 1}}
             <img src="@/assets/images/icons/arrow.svg" class="icon"
                 v-show="props.elevator.state === 'called'"

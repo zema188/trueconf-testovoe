@@ -6,9 +6,7 @@
             @click="callElevator()"
         >
             {{ props.number + 1}}
-            <span>
-                
-            </span>
+            <span></span>
         </button>
     </div>
 </template>
@@ -31,10 +29,9 @@ const props = defineProps({
     },
 })
 
-// создаем вызов на этаж
-const emit = defineEmits(['callElevator'])
+const emit = defineEmits(['callElevator']) // создаем вызов на этаж
 
-//если на этаж вызван лсифт то кнопка загарается красной
+//если на этаж вызван лифт, то кнопка загарается красной
 const cheackForDisabled = computed(() => {
     return props.elevatorsInfo.filter(elevator => (elevator.state === 'called' && elevator.floor_called === props.number)).length
 })
