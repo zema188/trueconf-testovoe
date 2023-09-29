@@ -1,8 +1,8 @@
 <template>
   <main>
-    <div class="building"
-    >
-      <div class="building__floors-list" :style="{width: elevatorsListWidth }"
+    <div class="building">
+      <div class="building__floors-list"
+        :style="{ width: elevatorsListWidth }"
       >
         <the-floor
           v-for="(floor, index) in params.floors"
@@ -27,9 +27,6 @@
         >
         </the-elevator>
       </div>
-      <div class="test" style="position: fixed; right: 120px; top: 0;">
-        {{ queue }}
-      </div>
     </div>
   </main>
 </template>
@@ -39,10 +36,9 @@ import { computed, onMounted, ref } from 'vue'
 import TheElevator from './components/TheElevator.vue'
 import TheFloor from './components/TheFloor.vue'
 
-//параметры
-const params = {
-  floors: 10,
-  elevators: 5,
+const params = { //параметры
+  floors: 5,
+  elevators: 1,
   pause: 3000,
 }
 
@@ -59,32 +55,36 @@ window.addEventListener('resize', () => {
   documentWidth.value = window.innerWidth
 });
 
+
 // высота этажа в процентах
 const floorHeightPercent = computed(() => {
   return 100 / params.floors
 })
+
 
 // высота этажа в px
 const floorHeight = computed(() => {
   return Math.max(documentHeight.value / params.floors, 90)
 })
 
+
 // минимальная высота блока (здания, лифта, всех этажей)
 const buildMinHeight = computed(() => {
   return params.floors * 90
 })
+
 
 // высота блока (здания, лифта, всех этажей) 
 const buildHeight = computed(() => {
   return params.floors * floorHeight.value
 })
 
-//
+
+// ширина здания
 const elevatorsListWidth = computed(() => {
   const minWidth = params.elevators * 100 + (params.elevators - 1) * 20 + 50;
   return documentWidth.value > minWidth ? 'auto' : minWidth + 'px'; 
 });
-
 
 
 // функция которую вызывает этаж для вызова лифта
@@ -93,10 +93,8 @@ const callElevator = (numberFloor) => {
   if(queue.value.includes(numberFloor) || cheackElevatorOnFloor(numberFloor) || cheackElevatorToCalled(numberFloor)) {
     return 0
   }
-
   
   const nearestElevator = findNearestElevator(numberFloor) // получаем ближайший лифт
-
   
   if(nearestElevator) { // если есть свободный лифт вызываем его
 
@@ -117,10 +115,10 @@ const changeStateElevatorToCalled = async (nearestElevator, numberFloor) => {
   if (nearestElevator.floor_called > nearestElevator.floor_current) nearestElevator.direction = 1
   if (nearestElevator.floor_called < nearestElevator.floor_current) nearestElevator.direction = -1
 
-  // Вычисляем дистанцию и время
+  // Вычисляем время
   const time = 1000 * Math.abs(nearestElevator.floor_called - nearestElevator.floor_current)
 
-  // делаем анимацию
+  // делаем анимацию движения
   const animationPromise = new Promise((resolve) => {
     elevatorMove(nearestElevator, time, () => {
 
@@ -143,13 +141,12 @@ const changeStateElevatorToCalled = async (nearestElevator, numberFloor) => {
 }
 
 
-// анимация движения лифтра
+// функция анимация движения лифтра
 const elevatorMove = (elevator, duration, callback) => {
   const distance = Math.abs(elevator.floor_called * floorHeight.value) / buildHeight.value * 100 - elevator.position_y
   const startValue = elevator.position_y
 
   let startTime
-  let lastUpdateTime = 0
 
   const updateValue = (currentTime) => {
     if (!startTime) {
@@ -158,25 +155,30 @@ const elevatorMove = (elevator, duration, callback) => {
 
     const elapsedTime = currentTime - startTime
 
-    // Обновляем time_to_called_floor на каждом кадре
     elevator.time_to_called_floor = duration - elapsedTime
 
     if (elapsedTime >= duration) {
       elevator.position_y = startValue + distance
+      
       if (elevator.position_y >= elevator.floor_called * floorHeight.value) {
         elevator.floor_current = elevator.floor_called
+        
       }
       elevator.time_to_called_floor = 0
       if (callback) {
         callback()
+
       }
     } else {
       const progress = elapsedTime / duration
       elevator.position_y = startValue + progress * distance
 
-      if (currentTime - lastUpdateTime >= 1000) {
-        elevator.floor_current += elevator.direction
-        lastUpdateTime = currentTime
+      if(elevator.direction === 1) {
+        elevator.floor_current = Math.floor((elevator.position_y / 100) * params.floors) + 1;
+
+      } else {
+        elevator.floor_current = Math.floor((elevator.position_y / 100) * params.floors);
+
       }
 
       requestAnimationFrame(updateValue)
@@ -187,7 +189,7 @@ const elevatorMove = (elevator, duration, callback) => {
 }
 
 
-// пауза лифта
+// функция пауза лифта
 const pauseElevator = (elevator, time_sleep, callback) => {
   elevator.state = 'pause'
   elevator.floor_called = null
@@ -257,6 +259,7 @@ const findNearestElevator = (floor) =>{
 
 // инициализируем приложение при запуске
 const initBuilding = () => {
+
   // если параметры изменились
   const paramsInfo = JSON.parse(localStorage.getItem('params'))
   if(paramsInfo) {
@@ -268,24 +271,24 @@ const initBuilding = () => {
   }
   const elevatorsInfo = localStorage.getItem('elevators')
   const queueInfo = localStorage.getItem('queue')
-  // если нет сохраненной информации о лифтах
-  if(!elevatorsInfo) {
+  
+  if(!elevatorsInfo) { // если нет сохраненной информации о лифтах
     initElevators()
-  } else { //если есть сохраненная информация о лифтах
+  } else { // если есть сохраненная информация о лифтах
     elevators.value = [...JSON.parse(elevatorsInfo)]
     queue.value = [...JSON.parse(queueInfo)]
+    
     // вызываем функцию для проверки состояний лифтов и запуска соответствующих функция
     resumeWorkElevators()
   }
 }
 
 
-// функция для продолжения работы лифтов после перезагрузки
+// функция для продолжения работы лифтов если страница была загружена и state != free
 const resumeWorkElevators = async () => {
   elevators.value.forEach(async (elevator) => {
 
-    // если лифт в движении
-    if (elevator.state === 'called') {
+    if (elevator.state === 'called') { // если лифт в движении
 
       const animationPromise = new Promise((resolve) => {
 
@@ -309,8 +312,8 @@ const resumeWorkElevators = async () => {
       return
     }
 
-    // если лифт на паузу
-    if (elevator.state === 'pause') {
+    
+    if (elevator.state === 'pause') { // если лифт на паузу
     // отправляем лифт на паузу
       const pausePromise = new Promise((resolve) => {
         pauseElevator(elevator, elevator.time_sleep, () => {
