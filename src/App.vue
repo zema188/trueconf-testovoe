@@ -41,8 +41,8 @@ import TheFloor from './components/TheFloor.vue'
 
 //параметры
 const params = {
-  floors: 23,
-  elevators: 22,
+  floors: 10,
+  elevators: 5,
   pause: 3000,
 }
 
@@ -81,7 +81,6 @@ const buildHeight = computed(() => {
 
 //
 const elevatorsListWidth = computed(() => {
-  console.log(params.elevators)
   const minWidth = params.elevators * 100 + (params.elevators - 1) * 20 + 50;
   return documentWidth.value > minWidth ? 'auto' : minWidth + 'px'; 
 });
