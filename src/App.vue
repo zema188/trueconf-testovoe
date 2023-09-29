@@ -1,8 +1,8 @@
 <template>
   <main>
-    <div class="building">
-      <div class="building__floors-list"
-        :style="{minWidth: elevatorsListWidth + 'px'}"
+    <div class="building"
+    >
+      <div class="building__floors-list" :style="{width: elevatorsListWidth }"
       >
         <the-floor
           v-for="(floor, index) in params.floors"
@@ -16,7 +16,6 @@
       </div>
       <div class="building__elevators-list"
         :style="{ minHeight: buildMinHeight + 'px'}"
-        ref="elevatorsList"
       >
         <the-elevator
           v-for="elevator in elevators"
@@ -28,7 +27,7 @@
         >
         </the-elevator>
       </div>
-      <div class="test" style="position: fixed; right: 0; top: 0;">
+      <div class="test" style="position: fixed; right: 120px; top: 0;">
         {{ queue }}
       </div>
     </div>
@@ -42,7 +41,7 @@ import TheFloor from './components/TheFloor.vue'
 
 //параметры
 const params = {
-  floors: 3,
+  floors: 23,
   elevators: 22,
   pause: 3000,
 }
@@ -51,13 +50,13 @@ let elevators = ref([]) // массив лифтов
 
 let queue = ref([]) // очередь вызовов
 
-const elevatorsList = ref(null)
-
 let documentHeight = ref(window.innerHeight) // высота экрана
+let documentWidth = ref(window.innerWidth) // ширина экрана
 
 // обновляем высоту экрана
 window.addEventListener('resize', () => {
   documentHeight.value = window.innerHeight;
+  documentWidth.value = window.innerWidth
 });
 
 // высота этажа в процентах
@@ -82,10 +81,9 @@ const buildHeight = computed(() => {
 
 //
 const elevatorsListWidth = computed(() => {
-  const minWidth = params.elevators * 96 + (params.elevators - 1) * 20 + 50;
-  if(elevatorsList.value)
-  console.log(elevatorsList.value.offsetWidth);
-  return window.innerWidth > minWidth ? window.innerWidth - 50 : minWidth;
+  console.log(params.elevators)
+  const minWidth = params.elevators * 100 + (params.elevators - 1) * 20 + 50;
+  return documentWidth.value > minWidth ? 'auto' : minWidth + 'px'; 
 });
 
 
@@ -377,6 +375,7 @@ window.addEventListener('beforeunload', synchronizationLocalStorage)
 <style lang="scss">
   .building {
     position: relative;
+    overflow: auto;
     height: 100vh;
     &__floors-list {
       display: flex;
